@@ -162,6 +162,8 @@ namespace DesktopDuplication
         {
             try
             {
+                _acquireTask?.GetAwaiter().GetResult();
+
                 _deskDupl?.Dispose();
                 _desktopImageTexture?.Dispose();
                 _device?.Dispose();
