@@ -166,6 +166,7 @@ namespace Captura.Models
                     Frame.CopyTo(_videoBuffer, _videoBuffer.Length);
                 }
             }
+            else Console.WriteLine("Writing Repeat Frame");
 
             _lastFrameTask = _ffmpegIn.WriteAsync(_videoBuffer, 0, _videoBuffer.Length);
         }

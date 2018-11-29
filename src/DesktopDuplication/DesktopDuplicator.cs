@@ -7,6 +7,7 @@ using SharpDX.DXGI;
 using System;
 using System.Drawing;
 using System.Drawing.Imaging;
+using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using Captura;
 using Device = SharpDX.Direct3D11.Device;
@@ -23,17 +24,21 @@ namespace DesktopDuplication
         readonly Texture2D _desktopImageTexture;
         OutputDuplicateFrameInformation _frameInfo;
 
-        Rectangle _rect;
+        readonly Rectangle _rect;
 
         readonly bool _includeCursor;
         #endregion
 
-        public int Timeout { get; set; }
+        int Timeout { get; } = 5000;
+
+        readonly ImagePool _imagePool;
 
         public DesktopDuplicator(Rectangle Rect, bool IncludeCursor, Adapter Adapter, Output1 Output)
         {
             _rect = Rect;
             _includeCursor = IncludeCursor;
+
+            _imagePool = new ImagePool(Rect.Width, Rect.Height);
             
             _device = new Device(Adapter);
 
@@ -66,14 +71,28 @@ namespace DesktopDuplication
 
             _desktopImageTexture = new Texture2D(_device, textureDesc);
         }
-        
+
+        SharpDX.DXGI.Resource _desktopResource;
+
+        Task _acquireTask;
+
+        void BeginAcquireTask()
+        {
+            _acquireTask = Task.Run(() => _deskDupl.AcquireNextFrame(Timeout, out _frameInfo, out _desktopResource));
+        }
+
         public IBitmapFrame Capture()
         {
-            SharpDX.DXGI.Resource desktopResource;
+            if (_acquireTask == null)
+            {
+                BeginAcquireTask();
+
+                return RepeatFrame.Instance;
+            }
 
             try
             {
-                _deskDupl.AcquireNextFrame(Timeout, out _frameInfo, out desktopResource);
+                _acquireTask.GetAwaiter().GetResult();
             }
             catch (SharpDXException e) when (e.Descriptor == SharpDX.DXGI.ResultCode.WaitTimeout)
             {
@@ -84,9 +103,9 @@ namespace DesktopDuplication
                 throw new Exception("Failed to acquire next frame.", e);
             }
             
-            using (desktopResource)
+            using (_desktopResource)
             {
-                using (var tempTexture = desktopResource.QueryInterface<Texture2D>())
+                using (var tempTexture = _desktopResource.QueryInterface<Texture2D>())
                 {
                     var resourceRegion = new ResourceRegion(_rect.Left, _rect.Top, 0, _rect.Right, _rect.Bottom, 1);
 
@@ -95,12 +114,13 @@ namespace DesktopDuplication
             }
 
             ReleaseFrame();
+            BeginAcquireTask();
 
             var mapSource = _device.ImmediateContext.MapSubresource(_desktopImageTexture, 0, MapMode.Read, MapFlags.None);
 
             try
             {
-                return new OneTimeFrame(ProcessFrame(mapSource.DataPointer, mapSource.RowPitch));
+                return ProcessFrame(mapSource.DataPointer);
             }
             finally
             {
@@ -108,30 +128,19 @@ namespace DesktopDuplication
             }
         }
 
-        Bitmap ProcessFrame(IntPtr SourcePtr, int SourceRowPitch)
+        IBitmapFrame ProcessFrame(IntPtr SourcePtr)
         {
-            var frame = new Bitmap(_rect.Width, _rect.Height, PixelFormat.Format32bppRgb);
+            var img = _imagePool.Get();
+            
+            Marshal.Copy(SourcePtr, img.ImageData, 0, _rect.Width * _rect.Height * 4);
 
-            // Copy pixels from screen capture Texture to GDI bitmap
-            var mapDest = frame.LockBits(new Rectangle(0, 0, _rect.Width, _rect.Height), ImageLockMode.WriteOnly, frame.PixelFormat);
+            //if (_includeCursor && (_frameInfo.LastMouseUpdateTime == 0 || _frameInfo.PointerPosition.Visible))
+            //{
+            //    using (var g = Graphics.FromImage(frame))
+            //        MouseCursor.Draw(g, P => new Point(P.X - _rect.X, P.Y - _rect.Y));
+            //}
 
-            Parallel.For(0, _rect.Height, Y =>
-            {
-                Utilities.CopyMemory(mapDest.Scan0 + Y * mapDest.Stride,
-                    SourcePtr + Y * SourceRowPitch,
-                    _rect.Width * 4);
-            });
-
-            // Release source and dest locks
-            frame.UnlockBits(mapDest);
-
-            if (_includeCursor && (_frameInfo.LastMouseUpdateTime == 0 || _frameInfo.PointerPosition.Visible))
-            {
-                using (var g = Graphics.FromImage(frame))
-                    MouseCursor.Draw(g, P => new Point(P.X - _rect.X, P.Y - _rect.Y));
-            }
-
-            return frame;
+            return img;
         }
         
         void ReleaseFrame()

@@ -33,10 +33,7 @@ namespace Captura.Models
         {
             _dupl?.Dispose();
 
-            _dupl = new DesktopDuplicator(_rectangle, _includeCursor, _adapter, _output)
-            {
-                Timeout = Timeout
-            };
+            _dupl = new DesktopDuplicator(_rectangle, _includeCursor, _adapter, _output);
         }
         
         public int Height { get; }
