@@ -31,7 +31,7 @@ namespace Screna
         public void DrawEllipse(Pen Pen, RectangleF Rectangle) { }
     }
 
-    public class ReusableFrame : IBitmapFrame
+    public class ReusableFrame : IBitmapFrame, IDirectBufferAccess
     {
         public byte[] ImageData { get; }
 

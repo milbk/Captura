@@ -1,5 +1,4 @@
 ﻿using Captura.Audio;
-using System.Collections.Generic;
 using SharpAvi.Codecs;
 using SharpAvi.Output;
 using AviInternalWriter = SharpAvi.Output.AviWriter;
@@ -15,7 +14,7 @@ namespace Captura.Models
         readonly AviInternalWriter _writer;
         IAviVideoStream _videoStream;
         IAviAudioStream _audioStream;
-        readonly byte[] _videoBuffer;
+        byte[] _videoBuffer;
         readonly AviCodec _codec;
         
         /// <summary>
@@ -59,7 +58,15 @@ namespace Captura.Models
             {
                 using (Frame)
                 {
-                    Frame.CopyTo(_videoBuffer, _videoBuffer.Length);
+                    if (Frame is IDirectBufferAccess directBufferAccess)
+                    {
+                        _videoBuffer = directBufferAccess.ImageData;
+                    }
+                    else if (Frame is IFrameWrapper frameWrapper && frameWrapper.Frame is IDirectBufferAccess directBuffer)
+                    {
+                        _videoBuffer = directBuffer.ImageData;
+                    }
+                    else Frame.CopyTo(_videoBuffer, _videoBuffer.Length);
                 }
             }
 

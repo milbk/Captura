@@ -15,4 +15,14 @@ namespace Captura
 
         IBitmapEditor GetEditor();
     }
+
+    public interface IDirectBufferAccess
+    {
+        byte[] ImageData { get; }
+    }
+
+    public interface IFrameWrapper
+    {
+        IBitmapFrame Frame { get; }
+    }
 }
