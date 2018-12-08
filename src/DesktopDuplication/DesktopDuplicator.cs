@@ -5,23 +5,24 @@ using SharpDX;
 using SharpDX.Direct3D11;
 using SharpDX.DXGI;
 using System;
-using System.Drawing;
-using System.Drawing.Imaging;
-using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using Captura;
 using Device = SharpDX.Direct3D11.Device;
-using MapFlags = SharpDX.Direct3D11.MapFlags;
+using Rectangle = System.Drawing.Rectangle;
 
 namespace DesktopDuplication
 {
+    public static class DeviceMan
+    {
+        public static Device Device { get; set; }
+    }
+
     public class DesktopDuplicator : IDisposable
     {
         #region Fields
         readonly Device _device;
         readonly OutputDuplication _deskDupl;
 
-        readonly Texture2D _desktopImageTexture;
         OutputDuplicateFrameInformation _frameInfo;
 
         readonly Rectangle _rect;
@@ -31,16 +32,16 @@ namespace DesktopDuplication
 
         int Timeout { get; } = 5000;
 
-        readonly ImagePool _imagePool;
+        readonly TextureAllocator _textureAllocator;
 
         public DesktopDuplicator(Rectangle Rect, bool IncludeCursor, Adapter Adapter, Output1 Output)
         {
             _rect = Rect;
             _includeCursor = IncludeCursor;
-
-            _imagePool = new ImagePool(Rect.Width, Rect.Height);
             
             _device = new Device(Adapter);
+
+            DeviceMan.Device = _device;
 
             var textureDesc = new Texture2DDescription
             {
@@ -69,7 +70,7 @@ namespace DesktopDuplication
                 throw new NotSupportedException("Desktop Duplication is not supported on this system.\nIf you have multiple graphic cards, try running Captura on integrated graphics.", e);
             }
 
-            _desktopImageTexture = new Texture2D(_device, textureDesc);
+            _textureAllocator = new TextureAllocator(textureDesc, _device);
         }
 
         SharpDX.DXGI.Resource _desktopResource;
@@ -102,6 +103,8 @@ namespace DesktopDuplication
             {
                 throw new Exception("Failed to acquire next frame.", e);
             }
+
+            var desktopImageTexture = _textureAllocator.AllocateTexture();
             
             using (_desktopResource)
             {
@@ -109,38 +112,14 @@ namespace DesktopDuplication
                 {
                     var resourceRegion = new ResourceRegion(_rect.Left, _rect.Top, 0, _rect.Right, _rect.Bottom, 1);
 
-                    _device.ImmediateContext.CopySubresourceRegion(tempTexture, 0, resourceRegion, _desktopImageTexture, 0);
+                    _device.ImmediateContext.CopySubresourceRegion(tempTexture, 0, resourceRegion, desktopImageTexture.Texture, 0);
                 }
             }
 
             ReleaseFrame();
             BeginAcquireTask();
 
-            var mapSource = _device.ImmediateContext.MapSubresource(_desktopImageTexture, 0, MapMode.Read, MapFlags.None);
-
-            try
-            {
-                return ProcessFrame(mapSource.DataPointer);
-            }
-            finally
-            {
-                _device.ImmediateContext.UnmapSubresource(_desktopImageTexture, 0);
-            }
-        }
-
-        IBitmapFrame ProcessFrame(IntPtr SourcePtr)
-        {
-            var img = _imagePool.Get();
-            
-            Marshal.Copy(SourcePtr, img.ImageData, 0, _rect.Width * _rect.Height * 4);
-
-            //if (_includeCursor && (_frameInfo.LastMouseUpdateTime == 0 || _frameInfo.PointerPosition.Visible))
-            //{
-            //    using (var g = Graphics.FromImage(frame))
-            //        MouseCursor.Draw(g, P => new Point(P.X - _rect.X, P.Y - _rect.Y));
-            //}
-
-            return img;
+            return new TextureFrame(desktopImageTexture);
         }
         
         void ReleaseFrame()
@@ -165,7 +144,7 @@ namespace DesktopDuplication
                 _acquireTask?.GetAwaiter().GetResult();
 
                 _deskDupl?.Dispose();
-                _desktopImageTexture?.Dispose();
+                _textureAllocator?.Dispose();
                 _device?.Dispose();
             }
             catch { }

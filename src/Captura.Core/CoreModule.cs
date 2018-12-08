@@ -3,6 +3,7 @@ using System.Reflection;
 using Captura.Models;
 using Captura.NAudio;
 using Captura.ViewModels;
+using DesktopDuplication;
 
 namespace Captura
 {
@@ -66,6 +67,7 @@ namespace Captura
             BindAsInterfaceAndClass<IVideoWriterProvider, SharpAviWriterProvider>(Binder);
             BindAsInterfaceAndClass<IVideoWriterProvider, StreamingWriterProvider>(Binder);
             BindAsInterfaceAndClass<IVideoWriterProvider, DiscardWriterProvider>(Binder);
+            BindAsInterfaceAndClass<IVideoWriterProvider, MfWriterProvider>(Binder);
 
             Binder.BindSingleton<FullScreenItem>();
 
@@ -110,6 +112,8 @@ namespace Captura
                 Binder.Bind<IUpdateChecker, DevUpdateChecker>();
             }
             else Binder.Bind<IUpdateChecker, UpdateChecker>();
+
+            MfManager.Startup();
         }
 
         static bool Windows8OrAbove

@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
 using Captura;
+using DesktopDuplication;
+using SharpDX.Direct3D11;
 
 namespace Screna
 {
@@ -116,5 +118,35 @@ namespace Screna
                 frame.Destroy();
             }
         }
+    }
+
+    public class TextureFrame : IBitmapFrame
+    {
+        public TextureFrame(AllocatedTexture Texture)
+        {
+            this.Texture = Texture;
+
+            Width = Texture.Texture.Description.Width;
+            Height = Texture.Texture.Description.Height;
+        }
+
+        public AllocatedTexture Texture { get; }
+
+        public void Dispose() { }
+
+        public void SaveGif(Stream Stream)
+        {
+            throw new NotImplementedException();
+        }
+
+        public int Width { get; }
+        public int Height { get; }
+
+        public void CopyTo(byte[] Buffer, int Length)
+        {
+            throw new NotImplementedException();
+        }
+
+        public IBitmapEditor GetEditor() => DummyBitmapEditor.Instance;
     }
 }
