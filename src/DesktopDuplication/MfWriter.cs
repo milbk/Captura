@@ -2,20 +2,15 @@
 using System.Diagnostics;
 using Captura;
 using Screna;
-using SharpDX.Direct3D;
-using SharpDX.Direct3D9;
 using SharpDX.MediaFoundation;
-using SharpDX.MediaFoundation.DirectX;
-using Device = SharpDX.Direct3D11.Device;
-using DeviceType = SharpDX.Direct3D9.DeviceType;
 
 namespace DesktopDuplication
 {
     public class MfWriter : IVideoFileWriter
     {
-        const int BitRate = 4_000_000;
+        const int BitRate = 8_000_000;
         readonly Guid _encodingFormat = VideoFormatGuids.H264;
-        readonly Guid _inputFormat = VideoFormatGuids.Rgb32;
+        readonly Guid _inputFormat = VideoFormatGuids.NV12;
         readonly Stopwatch _stopwatch = new Stopwatch();
         long _prevFrameTicks;
         readonly SinkWriter _writer;

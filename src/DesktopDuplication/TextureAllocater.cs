@@ -7,7 +7,7 @@ namespace DesktopDuplication
     {
         readonly Texture2DDescription _textureDescription;
         readonly Device _device;
-        const int TextureCount = 5;
+        const int TextureCount = 2;
         readonly AllocatedTexture[] _textures = new AllocatedTexture[TextureCount];
         int _currentTexture = -1;
         // If all textures are the exact same size and color format,
