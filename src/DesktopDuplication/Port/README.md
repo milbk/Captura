@@ -1,0 +1,1 @@
+﻿Ported from https://github.com/Microsoft/Windows-classic-samples/blob/master/Samples/DXGIDesktopDuplication/cpp/
